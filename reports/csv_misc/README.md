@@ -18,4 +18,3 @@ overlap_identity_splits_proteome_tools_from_kevin_753915_with_identity_splits_bl
 | Overlap       | Identity Splits (ProteomeTools) | 753,915     | Identity Splits (Blacklist) | 248,900         | 75,390                  | `overlap_identity_splits_proteome_tools_from_kevin_753915_with_identity_splits_blacklist_from_kevin_248900_found_75390.csv`  |
 | Standalone    | Projects                     | 44,976          | —                          | —                | —                       | `overall_projects_unique_peptides_actually_44976`                                                                             |
 
-ke any further refinements, such as color-coding or additional annotations?
