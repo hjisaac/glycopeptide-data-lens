@@ -27,7 +27,7 @@ def collect_files(location, ext="ipc", raise_empty_exc=False) -> list[str]:
         file_paths = [location]
     else:
         raise ValueError(
-            f"Location {location} is neither a directory nor an {ext.upper()} file"
+            f"Location {location} is neither a directory nor a {ext.upper()} file"
         )
 
     return file_paths

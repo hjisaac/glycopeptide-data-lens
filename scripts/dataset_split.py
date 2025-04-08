@@ -15,6 +15,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 
 from typing import Literal
+from pathlib import Path
 from instanovo.utils.data_handler import SpectrumDataFrame
 
 from instanovo.transformer.dataset import remove_modifications as clean_peptide
@@ -124,8 +125,9 @@ assert len(test_peptides_df) == 8996, len(test_peptides_df)
 
 
 def write_split(
-    split_name: "train" | "val" | "test",
-    algorithm_version: "vO" | "v1" | "v2",
+    project_name: Path | str,
+    split_name: Literal["train", "val", "test"],  # noqa
+    algorithm_version: Literal["vO", "v1", "v2"],
     potential_peptides_set: set,
     *args,
     max_charge: int = 10,
@@ -133,17 +135,21 @@ def write_split(
 ):
     logger.info(f"Instantiating SpectrumDataFrame with args={args} and kwargs={kwargs}")
     sdf = SpectrumDataFrame.load(*args, verbose=True, **kwargs)  # noqa
-    logger.info(f"Instantiated SpectrumDataFrame with {len(sdf)} spectra")
+    logger.info(
+        f"Instantiated SpectrumDataFrame with {len(sdf)} spectra from project {project_name}"
+    )
     sdf.filter_rows(
         lambda row: (row["precursor_charge"] <= max_charge)
         and (row["precursor_charge"] > 0)
         and (row["peptide"] in potential_peptides_set)
     )
     logger.info(f"Got {len(sdf)} spectra after filtering by precursor charge")
-    logger.info(f"Starting train/test splits...")
-    target_path = BASE_PROCESSED_DATA_DIR / "PXD035158"
+    logger.info(f"Starting {split_name} split... for project {project_name}")
+    target_path = BASE_PROCESSED_DATA_DIR / project_name
     sdf.save(target_path, partition=f"glyco_{algorithm_version}_{split_name}")
-    logger.info(f"Saved {len(sdf)} spectra to {target_path}")
+    logger.info(
+        f"Saved {len(sdf)} spectra for {split_name} to {target_path} for project {project_name}"
+    )
     return sdf
 
 
