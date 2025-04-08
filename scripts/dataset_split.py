@@ -144,7 +144,7 @@ def write_split(
         and (row["peptide"] in potential_peptides_set)
     )
     logger.info(f"Got {len(sdf)} spectra after filtering by precursor charge")
-    logger.info(f"Starting {split_name} split... for project {project_name}")
+    logger.info(f"Starting {split_name} split for project {project_name}")
     target_path = BASE_PROCESSED_DATA_DIR / project_name
     sdf.save(target_path, partition=f"glyco_{algorithm_version}_{split_name}")
     logger.info(
@@ -164,7 +164,10 @@ assert projects_dirs, projects_dirs
 
 
 # Version 0 for train/test split
+dirs_to_ignore = ["PXD044641_PXD035158"]  #
 for project_dir in projects_dirs:
+    if project_dir in dirs_to_ignore:
+        continue
     project_name = project_dir.split("/")[-2]
     project_file_paths = collect_files(location=project_dir, ext="ipc")
 
@@ -178,6 +181,7 @@ for project_dir in projects_dirs:
     ]:
 
         write_split(
+            project_name=project_name,
             split_name=split_name,
             algorithm_version="v0",
             potential_peptides_set=set(train_peptides_df),
