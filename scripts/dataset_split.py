@@ -115,7 +115,7 @@ assert len(test_peptides_df) == 8996, len(test_peptides_df)
 # In[27]:
 
 
-# The zero designs inherited by the SpectrumDataFrame class makes splitting the dataset
+# The zero-copy designs inherited by the SpectrumDataFrame class makes splitting the dataset
 # one time complicated.Actually, when we filter an object of the SpectrumDataframe class, the filters
 # are kept with the object and are lazily evaluated. So, when an object of the SpectrumDataframe class is filtered, a new object of the that class is not returned, but
 # instead it is the old object that is mutated. So if, I decide to use the .filter_rows method, I'll have to filter train and test separately in different inner contexts. But I guess they should be a way to interact with the predicates held by an object of that class.
@@ -166,9 +166,10 @@ assert projects_dirs, projects_dirs
 # Version 0 for train/test split
 dirs_to_ignore = ["PXD044641_PXD035158"]  #
 for project_dir in projects_dirs:
-    if project_dir in dirs_to_ignore:
-        continue
     project_name = project_dir.split("/")[-2]
+    if project_name in dirs_to_ignore:
+        logger.info(f"Skipping project {project_name} as part of projects to ignore")
+        continue
     project_file_paths = collect_files(location=project_dir, ext="ipc")
 
     logger.info(
