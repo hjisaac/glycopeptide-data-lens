@@ -5,7 +5,7 @@ def get_logger_config(subdir: str = "") -> dict:
 
     # assert subdir is not None, subdir
 
-    log_dir = BASE_LOGS_DIR / subdir
+    log_dir = BASE_LOGS_DIR / subdir if subdir else BASE_LOGS_DIR
     log_file = log_dir / f"app.log"
 
     logging_config = {
