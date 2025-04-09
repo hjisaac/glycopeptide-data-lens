@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[17]:
+# In[2]:
 
 
 import os
@@ -24,7 +24,7 @@ from instanovo.transformer.dataset import remove_modifications as clean_peptide
 sys.path.append(os.path.abspath(os.path.join(os.getcwd(), os.pardir)))
 
 
-# In[18]:
+# In[3]:
 
 
 from common.utils import collect_files, get_or_create_folder
@@ -38,7 +38,7 @@ from common.constants import (
 )
 
 
-# In[19]:
+# In[4]:
 
 
 logger_config = get_logger_config(subdir="scripts")
@@ -46,7 +46,7 @@ logging.config.dictConfig(logger_config)
 logger = logging.getLogger(__name__)
 
 
-# In[20]:
+# In[6]:
 
 
 # Collect each unique_peptide.csv file
@@ -59,7 +59,7 @@ peptides_file_paths = [
 assert peptides_file_paths, peptides_file_paths
 
 
-# In[21]:
+# In[7]:
 
 
 df = pd.concat([pd.read_csv(file) for file in peptides_file_paths], ignore_index=True)
@@ -74,13 +74,13 @@ df["Unique Peptides"].describe()
 
 # ## Split without Kevin constraint
 
-# In[23]:
+# In[9]:
 
 
 unique_peptides_df = df["Unique Peptides"].drop_duplicates()
 
 
-# In[24]:
+# In[10]:
 
 
 indices = np.arange(len(unique_peptides_df))
@@ -97,13 +97,13 @@ train_peptides_df = shuffled_df.iloc[:split_seperator].reset_index(drop=True)
 test_peptides_df = shuffled_df.iloc[split_seperator:].reset_index(drop=True)
 
 
-# In[25]:
+# In[11]:
 
 
 assert len(train_peptides_df) == 35980, len(train_peptides_df)
 
 
-# In[26]:
+# In[12]:
 
 
 assert len(test_peptides_df) == 8996, len(test_peptides_df)
@@ -112,13 +112,16 @@ assert len(test_peptides_df) == 8996, len(test_peptides_df)
 # In[26]:
 
 
-# In[27]:
+# In[13]:
 
 
 # The zero-copy designs inherited by the SpectrumDataFrame class makes splitting the dataset
 # one time complicated.Actually, when we filter an object of the SpectrumDataframe class, the filters
-# are kept with the object and are lazily evaluated. So, when an object of the SpectrumDataframe class is filtered, a new object of the that class is not returned, but
-# instead it is the old object that is mutated. So if, I decide to use the .filter_rows method, I'll have to filter train and test separately in different inner contexts. But I guess they should be a way to interact with the predicates held by an object of that class.
+# are kept with the object and are lazily evaluated. So, when an object of the SpectrumDataframe class
+# is filtered, a new object of the that class is not returned, but instead it is the old object that
+# is mutated. So if, I decide to use the .filter_rows method, I'll have to filter train and test separately
+# in different inner contexts. But I guess they should be a way to interact with the predicates held by
+# an object of that class.
 
 # v0 => for splitting algorithm without taking into account splitting suggestions from Kevin
 # v1 =>
@@ -153,19 +156,22 @@ def write_split(
     return sdf
 
 
-# In[28]:
+# In[19]:
 
 
 projects_dirs = glob.glob(f"{BASE_RAW_DATA_DIR}/*/")
 assert projects_dirs, projects_dirs
 
 
-# In[ ]:
+# In[14]:
 
 
 # Version 0 for train/test split
+
+
 dirs_to_ignore = ["PXD044641_PXD035158"]  #
-for project_dir in projects_dirs:
+# DOCME: Replace the [] by projects_dirs to make the to script run
+for project_dir in []:  # projects_dirs
     project_name = project_dir.split("/")[-2]
     if project_name in dirs_to_ignore:
         logger.info(f"Skipping project {project_name} as part of projects to ignore")
@@ -192,20 +198,55 @@ for project_dir in projects_dirs:
         )
 
 
-# In[31]:
+# In[20]:
 
 
-# sdf = write_split(
-#     split_name="train",
-#     algorithm_version="v0",
-#     potential_peptides_set=set(train_peptides_df),
-#     source=f"{BASE_RAW_DATA_DIR / 'PXD035158'}/*",
-#     source_type="ipc",
-#     column_mapping={"intensity": "intensity_array", "mz": "mz_array"},
-# )
+train_peptides_set = pd.read_csv(
+    BASE_REPORTS_CSV_DIR
+    / "train_blacklist_overlap_identity_splits_massivekb_from_kevin_1067866_with_glyco_projects_44976_found_15499.csv"
+)["Overlapped train peptides"].unique()
+test_peptides_set = pd.read_csv(
+    BASE_REPORTS_CSV_DIR
+    / "test_overlap_identity_splits_massivekb_from_kevin_33575_with_glyco_projects_44976_found_4136.csv"
+)["Overlapped test peptides"].unique()
+val_peptides_set = pd.read_csv(
+    BASE_REPORTS_CSV_DIR
+    / "valid_overlap_identity_splits_massivekb_from_kevin_13062_with_glyco_projects_44976_found_495.csv"
+)["Overlapped valid peptides"].unique()
 
 
-# In[39]:
+# In[ ]:
+
+
+# Version 0 for train/test split
+dirs_to_ignore = ["PXD044641_PXD035158"]  #
+# Focus on massivekb
+
+for project_dir in projects_dirs:
+    project_name = project_dir.split("/")[-2]
+    if project_name in dirs_to_ignore:
+        logger.info(f"Skipping project {project_name} as part of projects to ignore")
+        continue
+    project_file_paths = collect_files(location=project_dir, ext="ipc")
+
+    logger.info(
+        f"Collected {len(project_file_paths)} of project {project_name} files from {project_dir}"
+    )
+
+    for split_name, peptide_set in [
+        ("train", set(train_peptides_df)),
+        ("val", set(val_peptides_set)),
+        ("test", set(test_peptides_df)),
+    ]:
+        write_split(
+            project_name=project_name,
+            split_name=split_name,
+            algorithm_version="v1",
+            potential_peptides_set=set(train_peptides_df),
+            source=f"{BASE_RAW_DATA_DIR / project_name}/*",
+            source_type="ipc",
+            column_mapping={"intensity": "intensity_array", "mz": "mz_array"},
+        )
 
 
 # In[3]:
@@ -216,4 +257,7 @@ for project_dir in projects_dirs:
 # rr.head()
 
 
-# In[4]:
+# In[ ]:
+
+
+# In[ ]:
