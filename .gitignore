@@ -88,3 +88,7 @@ docs/build/
 *.ipc
 *.parquet
 *old.*
+
+# This is a draft do not commit it
+notebooks/project_overlap_stacked_barplot2.pdf
+notebooks/project_overlap_with_counts.pdf
