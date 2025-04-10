@@ -5,7 +5,7 @@ from pathlib import Path
 from datetime import datetime
 
 
-def collect_files(location, ext="ipc") -> list[str]:
+def collect_files(location, ext="ipc", raise_empty_exc=False) -> list[str]:
     """
     Get files having from a directory or a single ext file.
 
@@ -21,11 +21,14 @@ def collect_files(location, ext="ipc") -> list[str]:
     if os.path.isdir(location):
         pattern = f"**/*.{ext}"
         file_paths = glob.glob(os.path.join(location, pattern), recursive=True)
-        assert file_paths, file_paths
+        if raise_empty_exc and len(file_paths) == 0:
+            raise ValueError(f"No IPC files found in {location}")
     elif os.path.isfile(location) and location.endswith(".ipc"):
         file_paths = [location]
     else:
-        raise ValueError(f"Location {location} is neither a directory nor an {ext.upper()} file")
+        raise ValueError(
+            f"Location {location} is neither a directory nor a {ext.upper()} file"
+        )
 
     return file_paths
 

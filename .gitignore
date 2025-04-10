@@ -44,6 +44,7 @@ htmlcov/
 *.LOG
 *.Log
 *.log/
+app.log.*
 
 # Generated data files
 # Since your project generates synthetic data (e.g., CSV files)
@@ -85,4 +86,5 @@ docs/build/
 *.swp
 *.swo
 *.ipc
+*.parquet
 *old.*
