@@ -34,6 +34,7 @@ from common.constants import (
     BASE_PROCESSED_DATA_DIR,
     BASE_LOGS_DIR,
     BASE_PLOTS_DIR,
+    ROOT_DIR,
     BASE_REPORTS_CSV_DIR,
 )
 
@@ -123,9 +124,10 @@ def write_split(
     source_dir: Path | str,
     project_name: Path | str,
     split_name: Literal["train", "valid", "test"],  # noqa
-    algorithm_version: Literal["vO", "v1", "v2"],
+    algorithm_version: Literal["v0", "v1", "v2"],
     potential_peptides_set: set,
     max_charge: int = 10,
+    drop_unmodified: bool = False,
 ):
 
     file_paths = collect_files(location=source_dir)
@@ -137,7 +139,23 @@ def write_split(
         & (sdf["precursor_charge"] > 0)
         & (sdf["peptide"].apply(lambda x: clean_peptide(x) in potential_peptides_set))
     ]
-    sdf["modified_peptide"] = sdf["modified_peptide"].fillna(sdf["peptide"])
+    logger.info(f"Got {len(sdf)} spectra after filtering by precursor charge")
+    logger.info(f"Starting {split_name} split for project {project_name}")
+
+    missing_count = sdf["modified_peptide"].isna().sum()
+    logger.info(f"Found {missing_count} rows with missing modified_peptide")
+
+    if drop_unmodified:
+        logger.info("Filtering out rows with missing modified_peptide")
+        # Filter out rows with missing modified_peptide
+        sdf = sdf.dropna(subset=["modified_peptide"])
+        logger.info(
+            f"Left with {len(sdf)} rows after dropping rows with missing modified_peptide"
+        )
+    else:
+        logger.info("Filling in missing modified_peptide with related peptide")
+        # Use peptide as default value for modified_peptide
+        sdf["modified_peptide"] = sdf["modified_peptide"].fillna(sdf["peptide"])
     assert (
         sdf["precursor_charge"].between(1, max_charge).all()
     ), "Some precursor_charge values are out of range."
@@ -148,8 +166,6 @@ def write_split(
         sdf["modified_peptide"].isna().sum() == 0
     ), "Every row should have modified_peptide set"
 
-    logger.info(f"Got {len(sdf)} spectra after filtering by precursor charge")
-    logger.info(f"Starting {split_name} split for project {project_name}")
     target_path = BASE_PROCESSED_DATA_DIR / project_name
     filename = f"dataset-ms-glyco_{algorithm_version}_{split_name}.parquet"
     sdf.to_parquet(path=target_path / filename, index=False)
@@ -168,8 +184,9 @@ assert projects_dirs, projects_dirs
 # In[22]:
 
 
-# Version 0 for train/test split
-
+# Version 0 for train/test split: Constraint free split
+# NOTE: This code is broken because of the param drop_unmodified
+algorithm_version = "v0"
 dirs_to_ignore = ["PXD044641_PXD035158"]  #
 # DOCME: Replace the [] by projects_dirs to make the to script run
 for project_dir in []:  # projects_dirs:
@@ -190,7 +207,7 @@ for project_dir in []:  # projects_dirs:
         write_split(
             project_name=project_name,
             split_name=split_name,
-            algorithm_version="v0",
+            algorithm_version=algorithm_version,
             potential_peptides_set=set(peptide_set),
             source_dir=f"{BASE_RAW_DATA_DIR / project_name}/",
         )
@@ -216,11 +233,49 @@ kevin_val_peptides_array = pd.read_csv(
 # In[ ]:
 
 
-# Version 1 for train/test split
+# Version 1 for train/test/valid split => peptide is used as fallback for modified_peptide
 logger.info("Starting to split the dataset but taking into account kevin's suggestion")
 dirs_to_ignore = ["PXD044641_PXD035158"]  #
 # Focus on massivekb
 
+algorithm_version = "v1"
+# TODO: Uncomment the # projects_dirs to run the script
+for project_dir in []:  # projects_dirs:
+    project_name = project_dir.split("/")[-2]
+
+    if project_name in dirs_to_ignore:
+        logger.info(f"Skipping project {project_name} as part of projects to ignore")
+        continue
+    project_file_paths = collect_files(location=project_dir, ext="ipc")
+
+    logger.info(
+        f"Collected {len(project_file_paths)} of project {project_name} files from {project_dir}"
+    )
+
+    for split_name, kevin_peptide_set in [
+        ("train", set(kevin_train_peptides_array)),
+        ("valid", set(kevin_val_peptides_array)),
+        ("test", set(kevin_test_peptides_array)),
+    ]:
+        write_split(
+            drop_unmodified=False,
+            project_name=project_name,
+            split_name=split_name,
+            algorithm_version=algorithm_version,
+            potential_peptides_set=set(kevin_peptide_set),
+            source_dir=f"{BASE_RAW_DATA_DIR / project_name}/",
+        )
+
+
+# In[5]:
+
+
+# Version 2 for train/test/valid split => All rows with missing modified_peptides are filtered out.
+logger.info("Starting to split the dataset but taking into account kevin's suggestion")
+dirs_to_ignore = ["PXD044641_PXD035158"]  #
+# Focus on massivekb
+
+algorithm_version = "v2"
 for project_dir in projects_dirs:  # projects_dirs:
     project_name = project_dir.split("/")[-2]
 
@@ -239,22 +294,14 @@ for project_dir in projects_dirs:  # projects_dirs:
         ("test", set(kevin_test_peptides_array)),
     ]:
         write_split(
+            # The difference here
+            drop_unmodified=True,
             project_name=project_name,
             split_name=split_name,
-            algorithm_version="v1",
+            algorithm_version=algorithm_version,
             potential_peptides_set=set(kevin_peptide_set),
             source_dir=f"{BASE_RAW_DATA_DIR / project_name}/",
         )
-
-
-# In[5]:
-
-
-#
-# rr = pd.read_parquet(
-#  BASE_PROCESSED_DATA_DIR / "PXD035158/dataset-ms-glyco_v1_train-0001-0001.parquet"
-# )
-# rr.head()
 
 
 # In[9]:
@@ -266,4 +313,21 @@ for project_dir in projects_dirs:  # projects_dirs:
 # In[ ]:
 
 
-# In[ ]:
+# Attempt to analyze the content of the files
+
+
+# In[5]:
+
+
+result = pd.read_parquet(
+    BASE_PROCESSED_DATA_DIR
+    / f"PXD025859/dataset-ms-glyco_{algorithm_version}_train.parquet"
+)
+result[["peptide", "modified_peptide"]].to_csv(
+    ROOT_DIR
+    / f".trash_local/version{algorithm_version.replace('v', '')}_split_peptide_and_modified_peptides.csv",
+    index=False,
+)
+
+
+#
