@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[2]:
+# In[1]:
 
 
 import os
@@ -24,10 +24,10 @@ from instanovo.transformer.dataset import remove_modifications as clean_peptide
 sys.path.append(os.path.abspath(os.path.join(os.getcwd(), os.pardir)))
 
 
-# In[3]:
+# In[2]:
 
 
-from common.utils import collect_files, get_or_create_folder
+from common.utils import collect_files, get_or_create_folder, load_ipc_files
 from common.logger import get_logger_config
 from common.constants import (
     BASE_RAW_DATA_DIR,
@@ -38,7 +38,7 @@ from common.constants import (
 )
 
 
-# In[4]:
+# In[3]:
 
 
 logger_config = get_logger_config(subdir="scripts")
@@ -46,7 +46,7 @@ logging.config.dictConfig(logger_config)
 logger = logging.getLogger(__name__)
 
 
-# In[5]:
+# In[4]:
 
 
 # Collect each unique_peptide.csv file
@@ -59,14 +59,14 @@ peptides_file_paths = [
 assert peptides_file_paths, peptides_file_paths
 
 
-# In[7]:
+# In[14]:
 
 
 df = pd.concat([pd.read_csv(file) for file in peptides_file_paths], ignore_index=True)
 df.head(20)
 
 
-# In[8]:
+# In[15]:
 
 
 df["Unique Peptides"].describe()
@@ -74,13 +74,13 @@ df["Unique Peptides"].describe()
 
 # ## Split without Kevin constraint
 
-# In[10]:
+# In[16]:
 
 
 unique_peptides_df = df["Unique Peptides"].drop_duplicates()
 
 
-# In[11]:
+# In[18]:
 
 
 indices = np.arange(len(unique_peptides_df))
@@ -97,22 +97,14 @@ train_peptides_df = shuffled_df.iloc[:split_seperator].reset_index(drop=True)
 test_peptides_df = shuffled_df.iloc[split_seperator:].reset_index(drop=True)
 
 
-# In[12]:
+# In[19]:
 
 
 assert len(train_peptides_df) == 35980, len(train_peptides_df)
-
-
-# In[13]:
-
-
 assert len(test_peptides_df) == 8996, len(test_peptides_df)
 
 
-# In[26]:
-
-
-# In[23]:
+# In[20]:
 
 
 # The zero-copy designs inherited by the SpectrumDataFrame class makes splitting the dataset
@@ -128,45 +120,55 @@ assert len(test_peptides_df) == 8996, len(test_peptides_df)
 
 
 def write_split(
+    source_dir: Path | str,
     project_name: Path | str,
-    split_name: Literal["train", "val", "test"],  # noqa
+    split_name: Literal["train", "valid", "test"],  # noqa
     algorithm_version: Literal["vO", "v1", "v2"],
     potential_peptides_set: set,
-    *args,
     max_charge: int = 10,
-    **kwargs,
 ):
-    logger.info(f"Instantiating SpectrumDataFrame with args={args} and kwargs={kwargs}")
-    sdf = SpectrumDataFrame.load(*args, verbose=True, **kwargs)  # noqa
-    logger.info(
-        f"Instantiated SpectrumDataFrame with {len(sdf)} spectra from project {project_name}"
-    )
-    sdf.filter_rows(
-        lambda row: (row["precursor_charge"] <= max_charge)
-        and (row["precursor_charge"] > 0)
-        and (clean_peptide(row["peptide"]) in potential_peptides_set)
-    )
+
+    file_paths = collect_files(location=source_dir)
+
+    sdf = load_ipc_files(file_paths)
+    logger.info(f"Loaded {len(sdf)} entries from {source_dir}")
+    sdf = sdf[
+        (sdf["precursor_charge"] <= max_charge)
+        & (sdf["precursor_charge"] > 0)
+        & (sdf["peptide"].apply(lambda x: clean_peptide(x) in potential_peptides_set))
+    ]
+    sdf["modified_peptide"] = sdf["modified_peptide"].fillna(sdf["peptide"])
+    assert (
+        sdf["precursor_charge"].between(1, max_charge).all()
+    ), "Some precursor_charge values are out of range."
+    assert all(
+        clean_peptide(p) in potential_peptides_set for p in sdf["peptide"]
+    ), "Some peptides are not in the allowed set."
+    assert (
+        sdf["modified_peptide"].isna().sum() == 0
+    ), "Every row should have modified_peptide set"
+
     logger.info(f"Got {len(sdf)} spectra after filtering by precursor charge")
     logger.info(f"Starting {split_name} split for project {project_name}")
     target_path = BASE_PROCESSED_DATA_DIR / project_name
-    sdf.save(target_path, partition=f"glyco_{algorithm_version}_{split_name}")
+    filename = f"dataset-ms-glyco_{algorithm_version}_{split_name}.parquet"
+    sdf.to_parquet(path=target_path / filename, index=False)
     logger.info(
         f"Saved {len(sdf)} spectra for {split_name} to {target_path} for project {project_name}"
     )
 
 
-# In[16]:
+# In[21]:
 
 
 projects_dirs = glob.glob(f"{BASE_RAW_DATA_DIR}/*/")
 assert projects_dirs, projects_dirs
 
 
-# In[17]:
+# In[22]:
 
 
 # Version 0 for train/test split
-
 
 dirs_to_ignore = ["PXD044641_PXD035158"]  #
 # DOCME: Replace the [] by projects_dirs to make the to script run
@@ -185,19 +187,16 @@ for project_dir in []:  # projects_dirs:
         # ("val", set(val_peptides_df)),
         ("test", set(test_peptides_df)),
     ]:
-
         write_split(
             project_name=project_name,
             split_name=split_name,
             algorithm_version="v0",
             potential_peptides_set=set(peptide_set),
-            source=f"{BASE_RAW_DATA_DIR / project_name}/*",
-            source_type="ipc",
-            column_mapping={"intensity": "intensity_array", "mz": "mz_array"},
+            source_dir=f"{BASE_RAW_DATA_DIR / project_name}/",
         )
 
 
-# In[18]:
+# In[23]:
 
 
 kevin_train_peptides_array = pd.read_csv(
@@ -218,7 +217,7 @@ kevin_val_peptides_array = pd.read_csv(
 
 
 # Version 1 for train/test split
-logger.info("Starting to split the dataset but taking into account keving suggestion")
+logger.info("Starting to split the dataset but taking into account kevin's suggestion")
 dirs_to_ignore = ["PXD044641_PXD035158"]  #
 # Focus on massivekb
 
@@ -236,7 +235,7 @@ for project_dir in projects_dirs:  # projects_dirs:
 
     for split_name, kevin_peptide_set in [
         ("train", set(kevin_train_peptides_array)),
-        ("val", set(kevin_val_peptides_array)),
+        ("valid", set(kevin_val_peptides_array)),
         ("test", set(kevin_test_peptides_array)),
     ]:
         write_split(
@@ -244,20 +243,24 @@ for project_dir in projects_dirs:  # projects_dirs:
             split_name=split_name,
             algorithm_version="v1",
             potential_peptides_set=set(kevin_peptide_set),
-            source=f"{BASE_RAW_DATA_DIR / project_name}/*",
-            source_type="ipc",
-            column_mapping={"intensity": "intensity_array", "mz": "mz_array"},
+            source_dir=f"{BASE_RAW_DATA_DIR / project_name}/",
         )
+
+
+# In[5]:
+
+
+#
+# rr = pd.read_parquet(
+#  BASE_PROCESSED_DATA_DIR / "PXD035158/dataset-ms-glyco_v1_train-0001-0001.parquet"
+# )
+# rr.head()
 
 
 # In[9]:
 
 
-#
-# rr = pd.read_parquet(
-#     BASE_PROCESSED_DATA_DIR / "PXD035158/dataset-ms-glyco_v1_train-0001-0001.parquet"
-# )
-# rr.head()
+# rr["modified_peptide"].head(100)
 
 
 # In[ ]:
