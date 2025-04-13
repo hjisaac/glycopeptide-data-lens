@@ -1,4 +1,4 @@
-Project ID,Rows count,Real modification count,Empty modification count,Fake modification count (peptide = modified_peptide)
+Project ID,Rows count,Real modifications count,Empty modifications count,Fake modifications count (peptide = modified_peptide)
 PXD026629,381457,320823,42800,17834
 PXD031032,298178,172725,79203,46250
 PXD031025,54684,50611,1139,2934
