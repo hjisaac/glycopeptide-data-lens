@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[1]:
+# In[7]:
 
 
 import os
@@ -24,7 +24,7 @@ from instanovo.transformer.dataset import remove_modifications as clean_peptide
 sys.path.append(os.path.abspath(os.path.join(os.getcwd(), os.pardir)))
 
 
-# In[2]:
+# In[8]:
 
 
 from common.utils import collect_files, get_or_create_folder, load_ipc_files
