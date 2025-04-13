@@ -1,6 +1,11 @@
-# %% md
+#!/usr/bin/env python
+# coding: utf-8
+
 # # Instanovo-Glyco Training Data Analysis
-# %%
+
+# In[1]:
+
+
 import os
 import sys
 import logging
@@ -14,7 +19,7 @@ import matplotlib.pyplot as plt
 sys.path.append(os.path.abspath(os.path.join(os.getcwd(), os.pardir)))
 
 
-from common.utils import collect_files, get_or_create_folder
+from common.utils import collect_files, get_or_create_folder, load_ipc_files
 from common.logger import get_logger_config
 from common.constants import (
     BASE_RAW_DATA_DIR,
@@ -23,28 +28,60 @@ from common.constants import (
     BASE_REPORTS_CSV_DIR,
 )
 
-# %%
-target_data = "PXD044641_PXD035158"  # "PXD025859"
+
+# In[2]:
+
+
+target_data = "PXD025859"  # PXD035158
 artifacts_sub_dir = (BASE_RAW_DATA_DIR / target_data).as_posix().split("/")[-1]
 logs_dir = get_or_create_folder(BASE_LOGS_DIR / artifacts_sub_dir)
 plots_dir = get_or_create_folder(BASE_PLOTS_DIR / artifacts_sub_dir)
 csv_dir = get_or_create_folder(BASE_REPORTS_CSV_DIR / artifacts_sub_dir)
-# %%
+
+
+# In[3]:
+
+
 logger_config = get_logger_config(subdir=artifacts_sub_dir)
 logging.config.dictConfig(logger_config)
 logger = logging.getLogger(__name__)
-plt.rcParams["font.family"]
 logging.warning(
     f"Changing matplotlib font from {plt.rcParams['font.family']} to ['monospace']"
 )
 plt.rcParams["font.family"] = ["monospace"]
-# %%
+
+
+# In[4]:
+
+
 logger.info(
     f"Starting with artifacts subdir set to {artifacts_sub_dir}, log_dir set to {logs_dir} and plots_dir set to {plots_dir}"
 )
 
 
-# %%
+#
+
+# In[6]:
+
+
+# Grab all ipc files of interest but ATTENTION;
+# loading all many ipc files will increase the computation time
+ipc_files = collect_files(BASE_RAW_DATA_DIR / target_data)
+logger.info(f"Found {len(ipc_files)} IPC files")
+df = load_ipc_files(ipc_files, verbose=True)
+df.head(20)
+
+
+# In[ ]:
+
+
+assert False, "Raised intentionally"
+
+
+# In[4]:
+
+
+# Graphing functions go here
 def save_figure(filename, save_dir=plots_dir):
     """
     Save the current figure to a file.
@@ -69,8 +106,6 @@ def save_figure(filename, save_dir=plots_dir):
     logger.info(f"Saved plot to {save_path}")
 
 
-# %%
-# Graphing functions go here
 def plot_x_y(
     df,
     index,
@@ -125,7 +160,7 @@ def plot_quantitative(
     label (str): The label to display on the plot. If None, the column name is used.
     """
     xlabel = xlabel if xlabel else column
-    title = title if title else f"Histogram and KDE for {xlabel}"
+    title = title if title else f"Histogram and KDE for {xlabel.lower()}"
     plt.figure(figsize=(10, 6))
     sns.histplot(df[column], kde=True)
     plt.title(title)
@@ -184,9 +219,9 @@ def plot_x_y_bar(
     df,
     column,
     count_column_name,
-    xlabel="Duplicate Count",
-    ylabel="Column Combinations",
-    title="Duplicate Counts for Different Column Combinations",
+    xlabel="Duplicate count",
+    ylabel="Column combinations",
+    title="Duplicate counts for different column combinations",
     xtick_rotation=45,
     filename=None,
     save=True,
@@ -223,13 +258,6 @@ def plot_x_y_bar(
     plt.show()
 
 
-# %%
-# Grab all ipc files of interest but ATTENTION;
-# loading all many ipc files will increase the computation time
-ipc_files = collect_files(BASE_RAW_DATA_DIR / target_data)
-df = pd.concat([pd.read_feather(file) for file in ipc_files], ignore_index=True)
-df.head(20)
-# %% md
 # ## Columns description
 #
 # | **Field**               | **Description**                                                                                   |
@@ -261,11 +289,22 @@ df.head(20)
 # | `probability`           | The probability that the peptide identification is correct.                                       |
 # | `auc_intensity`         | The area under the curve (AUC) of the signal intensity, used for quantification.                  |
 # | `protein`               | The protein to which the peptide belongs, identified from a database.                             |
-# %%
+
+# In[6]:
+
+
 df.info()
-# %%
+
+
+# In[ ]:
+
+
 df[["mz"]].iloc[0].mz
-# %%
+
+
+# In[11]:
+
+
 highly_relevant_columns = [
     "peptide",
     "modified_peptide",
@@ -299,25 +338,41 @@ less_relevant_columns = [
     "hyperscore",
     "nextscore",
 ]
-# %% md
+
+
 # ### Recap statistics for relevant and less relevant columns
-# %%
+
+# In[6]:
+
+
 df_described = df[highly_relevant_columns].describe()
 df_described.to_csv(csv_dir / "highly_relevant_columns_described_df.csv", index=False)
 df_described
-# %%
+
+
+# In[ ]:
+
+
 df_described = df[moderatly_relevant_columns].describe()
 df_described.to_csv(
     csv_dir / "moderatly_relevant_columns_described_df.csv", index=False
 )
 df_described
-# %%
+
+
+# In[ ]:
+
+
 df_described = df[less_relevant_columns].describe()
 df_described.to_csv(csv_dir / "less_relevant_columns_described_df.csv", index=False)
 df_described
-# %% md
+
+
 # ### Duplicate investigation
-# %%
+
+# In[ ]:
+
+
 # Save unique peptides as a single-column CSV
 pd.DataFrame({"Unique Peptides": df["peptide"].unique()}).to_csv(
     csv_dir / "unique_peptides.csv", index=False
@@ -327,7 +382,11 @@ pd.DataFrame({"Unique Peptides": df["peptide"].unique()}).to_csv(
 pd.DataFrame({"Unique Modified Peptides": df["modified_peptide"].unique()}).to_csv(
     csv_dir / "unique_modified_peptides.csv", index=False
 )
-# %%
+
+
+# In[ ]:
+
+
 # Investigate duplicates
 # assert False, "This code block may take minutes to complete; Do you really want to run this code?, If yes, then disable this assertion."
 logger.info(
@@ -407,7 +466,11 @@ plot_x_y_bar(
     title="Duplicate counts for different column combinations",
     xtick_rotation=45,
 )
-# %%
+
+
+# In[ ]:
+
+
 # Access the mz and intensity of the most abundant peptide and modification
 pd.DataFrame({"Unique Peptides": df["peptide"].unique()}).to_csv(
     csv_dir / "unique_peptides.csv", index=False
@@ -419,17 +482,68 @@ pd.DataFrame({"Unique Modified Peptides": df["modified_peptide"].unique()}).to_c
 )
 # most_abundant_rows.head()
 
-# %%
 
-# %%
+# ### We want to see from which proteins do those duplicated peptides come
+
+# In[7]:
+
+
+top_peptides = df["peptide"].value_counts().nlargest(20).index
+
+# Filter the original DataFrame to only include those peptides
+filtered_df = df[df["peptide"].isin(top_peptides)]
+
+# Group by peptide and list all associated proteins
+peptide_to_proteins = (
+    filtered_df.groupby("peptide")["protein"]
+    .apply(lambda proteins: list(set(proteins)))  # optional: remove duplicates
+    .reset_index()
+)
+
+
+# In[8]:
+
+
+filtered_df[["peptide", "protein"]].value_counts()
+
+
+# In[11]:
+
+
+# In[13]:
+
+
+(df["protein"] == "").sum()
+
+
+# In[19]:
+
+
+# In[18]:
+
+
+print(peptide_to_proteins)
+
+
+# In[ ]:
+
+
 plot_qualitative(df, "modified_peptide", "Modified peptides")
 plot_qualitative(df, "peptide", "Peptide")
 plot_qualitative(df, "protein", "Proteins")
-# %%
+
+
+# In[ ]:
+
+
 plot_quantitative(df, "precursor_mz", xlabel="Precursor m/z")
 plot_quantitative(df, "precursor_charge", xlabel="Precursor charge")
 plot_quantitative(df, "delta_mass", xlabel="Delta mass")
-# %%
+
+
+# In[ ]:
+
+
 peptide_index = 0
 plot_x_y(
     df,
@@ -440,9 +554,28 @@ plot_x_y(
     "Intensity",
     title=f'm/z vs. Intensity for peptide {df.iloc[peptide_index]["peptide"]}',
 )
-# %%
 
-# %% md
+
+# ### Do we have entries that come with modified_peptide set to peptide without any actual modifications ?
+
+# In[5]:
+
+
+fake_modification_df = df[df["peptide"] == df["modified_peptide"]]
+
+
+# In[ ]:
+
+
+fake_modification_df.head(6)
+
+
+# In[ ]:
+
+
+fake_modification_df[["peptide", "modified_peptide"]]
+
+
 # ## PTMs identification
-# %% md
+
 # The scripts `scripts/identify_ptms` helps in identifying ptms.
