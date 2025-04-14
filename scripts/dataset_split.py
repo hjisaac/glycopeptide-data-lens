@@ -195,7 +195,7 @@ for project_dir in []:  # projects_dirs:
     project_file_paths = collect_files(location=project_dir, ext="ipc")
 
     logger.info(
-        f"Collected {len(project_file_paths)} of project {project_name} files from {project_dir}"
+        f"Collected {len(project_file_paths)} files of project {project_name} from {project_dir}"
     )
     for split_name, peptide_set in [
         ("train", set(train_peptides_df)),
@@ -247,7 +247,7 @@ for project_dir in []:  # projects_dirs:
     project_file_paths = collect_files(location=project_dir, ext="ipc")
 
     logger.info(
-        f"Collected {len(project_file_paths)} of project {project_name} files from {project_dir}"
+        f"Collected {len(project_file_paths)} files of project {project_name} from {project_dir}"
     )
 
     for split_name, kevin_peptide_set in [
@@ -266,8 +266,6 @@ for project_dir in []:  # projects_dirs:
 
 
 # In[5]:
-
-
 # Version 2 or Version 2.1 for train/test/valid split => All rows with missing modified_peptides are filtered out. But is version 2.1 we also filter out fake modifications defined as modifications for which modified_peptide is equal to peptide.
 logger.info("Starting to split the dataset but taking into account kevin's suggestion")
 dirs_to_ignore = ["PXD044641_PXD035158"]  #
@@ -283,7 +281,7 @@ for project_dir in projects_dirs:  # projects_dirs:
     project_file_paths = collect_files(location=project_dir, ext="ipc")
 
     logger.info(
-        f"Collected {len(project_file_paths)} of project {project_name} files from {project_dir}"
+        f"Collected {len(project_file_paths)} files of project {project_name} from {project_dir}"
     )
 
     for split_name, kevin_peptide_set in [
