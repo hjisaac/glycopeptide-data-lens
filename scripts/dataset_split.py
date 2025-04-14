@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[7]:
+# In[1]:
 
 
 import os
@@ -24,7 +24,7 @@ from instanovo.transformer.dataset import remove_modifications as clean_peptide
 sys.path.append(os.path.abspath(os.path.join(os.getcwd(), os.pardir)))
 
 
-# In[8]:
+# In[2]:
 
 
 from common.utils import collect_files, get_or_create_folder, load_ipc_files
@@ -170,14 +170,16 @@ def write_split(
     )
 
 
-# In[21]:
+# In[4]:
 
 
 projects_dirs = glob.glob(f"{BASE_RAW_DATA_DIR}/*/")
+dirs_to_ignore = ["PXD044641_PXD035158"]  #
+
 assert projects_dirs, projects_dirs
 
 
-# In[22]:
+# In[16]:
 
 
 logger.info("Starting to split the dataset but using random split")
@@ -195,7 +197,7 @@ for project_dir in []:  # projects_dirs:
     project_file_paths = collect_files(location=project_dir, ext="ipc")
 
     logger.info(
-        f"Collected {len(project_file_paths)} files of project {project_name} from {project_dir}"
+        f"Collected {len(project_file_paths)} of project {project_name} files from {project_dir}"
     )
     for split_name, peptide_set in [
         ("train", set(train_peptides_df)),
@@ -247,7 +249,7 @@ for project_dir in []:  # projects_dirs:
     project_file_paths = collect_files(location=project_dir, ext="ipc")
 
     logger.info(
-        f"Collected {len(project_file_paths)} files of project {project_name} from {project_dir}"
+        f"Collected {len(project_file_paths)} of project {project_name} files from {project_dir}"
     )
 
     for split_name, kevin_peptide_set in [
@@ -266,6 +268,8 @@ for project_dir in []:  # projects_dirs:
 
 
 # In[5]:
+
+
 # Version 2 or Version 2.1 for train/test/valid split => All rows with missing modified_peptides are filtered out. But is version 2.1 we also filter out fake modifications defined as modifications for which modified_peptide is equal to peptide.
 logger.info("Starting to split the dataset but taking into account kevin's suggestion")
 dirs_to_ignore = ["PXD044641_PXD035158"]  #
@@ -281,7 +285,7 @@ for project_dir in projects_dirs:  # projects_dirs:
     project_file_paths = collect_files(location=project_dir, ext="ipc")
 
     logger.info(
-        f"Collected {len(project_file_paths)} files of project {project_name} from {project_dir}"
+        f"Collected {len(project_file_paths)} of project {project_name} files from {project_dir}"
     )
 
     for split_name, kevin_peptide_set in [
@@ -306,24 +310,180 @@ for project_dir in projects_dirs:  # projects_dirs:
 # rr["modified_peptide"].head(100)
 
 
-# In[ ]:
+# ## Attempt to analyze the content of the split files
+
+# ### Split Version 2.1
+
+# In[29]:
 
 
-# Attempt to analyze the content of the files
+split_version = 2.1
+logger.info(f"Split version {split_version} content analysis")
+
+for split in ("train", "valid", "test"):
+    dfs = []
+    for project_dir in projects_dirs:  # projects_dirs:
+        project_name = project_dir.split("/")[-2]
+
+        if project_name in dirs_to_ignore:
+            logger.info(
+                f"Skipping project {project_name} as part of projects to ignore"
+            )
+            continue
+
+        file_path = f"{project_name}/dataset-ms-glyco_v{split_version}_{split}.parquet"
+        df = pd.read_parquet(BASE_PROCESSED_DATA_DIR / file_path)
+        logger.info(f"Got {len(df)} rows from {file_path} for project {project_name}")
+        dfs.append(df)
+
+    result = pd.concat(dfs, ignore_index=True)
+    logger.info(
+        f"Overall {len(result)} rows for project {project_name} {split} v{split_version}"
+    )
+
+    result[["peptide", "modified_peptide"]].to_csv(
+        BASE_REPORTS_CSV_DIR
+        / f"version{split_version}_{split}_split_peptide_and_modified_peptides.csv",
+        index=False,
+    )
+
+
+# In[30]:
+
+
+train_peptide_and_modified_df = pd.read_csv(
+    BASE_REPORTS_CSV_DIR
+    / f"version{split_version}_train_split_peptide_and_modified_peptides.csv",
+)
+
+train_peptide_and_modified_df.describe()
+
+
+# In[31]:
+
+
+valid_peptide_and_modified_df = pd.read_csv(
+    BASE_REPORTS_CSV_DIR
+    / f"version{split_version}_valid_split_peptide_and_modified_peptides.csv",
+)
+valid_peptide_and_modified_df.describe()
+
+
+# In[32]:
+
+
+test_peptide_and_modified_df = pd.read_csv(
+    BASE_REPORTS_CSV_DIR
+    / f"version{split_version}_test_split_peptide_and_modified_peptides.csv",
+)
+test_peptide_and_modified_df.describe()
+
+
+# In[33]:
+
+
+split_version = 1
+logger.info(f"Split version {split_version} content analysis")
+
+for split in ("train", "valid", "test"):
+    dfs = []
+    for project_dir in projects_dirs:  # projects_dirs:
+        project_name = project_dir.split("/")[-2]
+
+        if project_name in dirs_to_ignore:
+            logger.info(
+                f"Skipping project {project_name} as part of projects to ignore"
+            )
+            continue
+        logger.info(f"Reading {project_dir}")
+        df = pd.read_parquet(
+            "/home/hjisaac/AI4Science/instanovo_instadeep/glycodata_processed_version1/processed"
+            f"/{project_name}/dataset-ms-glyco_v{split_version}_{split}.parquet"
+        )
+        dfs.append(df)
+
+    result = pd.concat(dfs, ignore_index=True)
+
+    result[["peptide", "modified_peptide"]].to_csv(
+        BASE_REPORTS_CSV_DIR
+        / f"version{split_version}_{split}_split_peptide_and_modified_peptides.csv",
+        index=False,
+    )
+
+
+# In[34]:
+
+
+train_peptide_and_modified_df = pd.read_csv(
+    BASE_REPORTS_CSV_DIR
+    / f"version{split_version}_train_split_peptide_and_modified_peptides.csv",
+)
+
+train_peptide_and_modified_df.describe()
+
+
+# In[35]:
+
+
+valid_peptide_and_modified_df = pd.read_csv(
+    BASE_REPORTS_CSV_DIR
+    / f"version{split_version}_valid_split_peptide_and_modified_peptides.csv",
+)
+valid_peptide_and_modified_df.describe()
+
+
+# In[36]:
+
+
+test_peptide_and_modified_df = pd.read_csv(
+    BASE_REPORTS_CSV_DIR
+    / f"version{split_version}_test_split_peptide_and_modified_peptides.csv",
+)
+test_peptide_and_modified_df.describe()
+
+
+# ## Investigation for Kostas
+
+# In[2]:
+
+
+train1 = pd.read_csv(
+    "/home/hjisaac/AI4Science/instanovo_instadeep/InstanovoGlyco/.trash_local/version1_train_split_peptide_and_modified_peptides.csv"
+)
+
+
+# In[4]:
+
+
+len(train1["modified_peptide"].unique())
+
+
+# In[7]:
+
+
+len(train1)
+
+
+# In[3]:
+
+
+train2 = pd.read_csv(
+    "/home/hjisaac/AI4Science/instanovo_instadeep/InstanovoGlyco/.trash_local/version2.1_train_split_peptide_and_modified_peptides.csv"
+)
+
+
+#
+
+# In[6]:
+
+
+len(train2)
 
 
 # In[5]:
 
 
-result = pd.read_parquet(
-    BASE_PROCESSED_DATA_DIR
-    / f"PXD025859/dataset-ms-glyco_{algorithm_version}_train.parquet"
-)
-result[["peptide", "modified_peptide"]].to_csv(
-    ROOT_DIR
-    / f".trash_local/version{algorithm_version.replace('v', '')}_train_split_peptide_and_modified_peptides.csv",
-    index=False,
-)
+len(train2["modified_peptide"].unique())
 
 
 #
