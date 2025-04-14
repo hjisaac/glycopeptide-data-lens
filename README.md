@@ -1,8 +1,6 @@
 
 # Glyco Data Cleaning Logic
 
-This project provides logic and tools for cleaning glycomics-related data, ensuring consistency, accuracy, and usability for downstream analysis.
-
 ## Features
 
 - Handles noisy, inconsistent peptide and glycan data  

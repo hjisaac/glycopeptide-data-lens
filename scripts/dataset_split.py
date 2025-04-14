@@ -108,32 +108,21 @@ assert len(test_peptides_df) == 8996, len(test_peptides_df)
 # In[20]:
 
 
-# The zero-copy designs inherited by the SpectrumDataFrame class makes splitting the dataset
-# one time complicated. Actually, when we filter an object of the SpectrumDataframe class, the filters
-# are kept with the object and are lazily evaluated. So, when an object of the SpectrumDataframe class
-# is filtered, a new object of the that class is not returned, but instead it is the old object that
-# is mutated. So if, I decide to use the .filter_rows method, I'll have to filter train and test separately
-# in different inner contexts. But I guess they should be a way to interact with the predicates held by
-# an object of that class.
-
-# v0 => for splitting algorithm without taking into account splitting suggestions from Kevin
-# v1 =>
-
-
 def write_split(
     source_dir: Path | str,
     project_name: Path | str,
     split_name: Literal["train", "valid", "test"],  # noqa
-    algorithm_version: Literal["v0", "v1", "v2"],
+    algorithm_version: Literal["v0", "v1", "v2", "v2.1"],
     potential_peptides_set: set,
     max_charge: int = 10,
     drop_unmodified: bool = False,
 ):
-
     file_paths = collect_files(location=source_dir)
 
-    sdf = load_ipc_files(file_paths)
+    sdf, _ = load_ipc_files(file_paths)
     logger.info(f"Loaded {len(sdf)} entries from {source_dir}")
+
+    # Filter by charge and peptide set
     sdf = sdf[
         (sdf["precursor_charge"] <= max_charge)
         & (sdf["precursor_charge"] > 0)
@@ -142,20 +131,26 @@ def write_split(
     logger.info(f"Got {len(sdf)} spectra after filtering by precursor charge")
     logger.info(f"Starting {split_name} split for project {project_name}")
 
-    missing_count = sdf["modified_peptide"].isna().sum()
-    logger.info(f"Found {missing_count} rows with missing modified_peptide")
+    # Identify missing and fake modifications
+    is_missing = sdf["modified_peptide"].isna()
+    is_fake = sdf["modified_peptide"] == sdf["peptide"]
+
+    logger.info(f"Found {is_missing.sum()} rows with missing modified_peptide")
+    logger.info(
+        f"Found {is_fake.sum()} rows with fake modified_peptide (same as peptide)"
+    )
+
+    # Treat fake modifications as unmodified
+    is_unmodified = is_missing | is_fake
 
     if drop_unmodified:
-        logger.info("Filtering out rows with missing modified_peptide")
-        # Filter out rows with missing modified_peptide
-        sdf = sdf.dropna(subset=["modified_peptide"])
-        logger.info(
-            f"Left with {len(sdf)} rows after dropping rows with missing modified_peptide"
-        )
+        logger.info("Filtering out rows with missing or fake modified_peptide")
+        sdf = sdf[~is_unmodified]
+        logger.info(f"Left with {len(sdf)} rows after dropping unmodified rows")
     else:
-        logger.info("Filling in missing modified_peptide with related peptide")
-        # Use peptide as default value for modified_peptide
-        sdf["modified_peptide"] = sdf["modified_peptide"].fillna(sdf["peptide"])
+        logger.info("Filling missing modified_peptide with related peptide")
+        sdf.loc[is_missing, "modified_peptide"] = sdf["peptide"]
+
     assert (
         sdf["precursor_charge"].between(1, max_charge).all()
     ), "Some precursor_charge values are out of range."
@@ -166,6 +161,7 @@ def write_split(
         sdf["modified_peptide"].isna().sum() == 0
     ), "Every row should have modified_peptide set"
 
+    # Save final file
     target_path = BASE_PROCESSED_DATA_DIR / project_name
     filename = f"dataset-ms-glyco_{algorithm_version}_{split_name}.parquet"
     sdf.to_parquet(path=target_path / filename, index=False)
@@ -184,6 +180,8 @@ assert projects_dirs, projects_dirs
 # In[22]:
 
 
+logger.info("Starting to split the dataset but using random split")
+
 # Version 0 for train/test split: Constraint free split
 # NOTE: This code is broken because of the param drop_unmodified
 algorithm_version = "v0"
@@ -197,7 +195,7 @@ for project_dir in []:  # projects_dirs:
     project_file_paths = collect_files(location=project_dir, ext="ipc")
 
     logger.info(
-        f"Collected {len(project_file_paths)} of project {project_name} files from {project_dir}"
+        f"Collected {len(project_file_paths)} files of project {project_name} from {project_dir}"
     )
     for split_name, peptide_set in [
         ("train", set(train_peptides_df)),
@@ -249,7 +247,7 @@ for project_dir in []:  # projects_dirs:
     project_file_paths = collect_files(location=project_dir, ext="ipc")
 
     logger.info(
-        f"Collected {len(project_file_paths)} of project {project_name} files from {project_dir}"
+        f"Collected {len(project_file_paths)} files of project {project_name} from {project_dir}"
     )
 
     for split_name, kevin_peptide_set in [
@@ -268,14 +266,12 @@ for project_dir in []:  # projects_dirs:
 
 
 # In[5]:
-
-
-# Version 2 for train/test/valid split => All rows with missing modified_peptides are filtered out.
+# Version 2 or Version 2.1 for train/test/valid split => All rows with missing modified_peptides are filtered out. But is version 2.1 we also filter out fake modifications defined as modifications for which modified_peptide is equal to peptide.
 logger.info("Starting to split the dataset but taking into account kevin's suggestion")
 dirs_to_ignore = ["PXD044641_PXD035158"]  #
-# Focus on massivekb
 
-algorithm_version = "v2"
+# Focus on massivekb
+algorithm_version = "v2.1"  # Version 2.1
 for project_dir in projects_dirs:  # projects_dirs:
     project_name = project_dir.split("/")[-2]
 
@@ -285,7 +281,7 @@ for project_dir in projects_dirs:  # projects_dirs:
     project_file_paths = collect_files(location=project_dir, ext="ipc")
 
     logger.info(
-        f"Collected {len(project_file_paths)} of project {project_name} files from {project_dir}"
+        f"Collected {len(project_file_paths)} files of project {project_name} from {project_dir}"
     )
 
     for split_name, kevin_peptide_set in [
@@ -325,7 +321,7 @@ result = pd.read_parquet(
 )
 result[["peptide", "modified_peptide"]].to_csv(
     ROOT_DIR
-    / f".trash_local/version{algorithm_version.replace('v', '')}_split_peptide_and_modified_peptides.csv",
+    / f".trash_local/version{algorithm_version.replace('v', '')}_train_split_peptide_and_modified_peptides.csv",
     index=False,
 )
 

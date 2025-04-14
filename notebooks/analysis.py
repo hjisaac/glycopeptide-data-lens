@@ -3,11 +3,12 @@
 
 # # Instanovo-Glyco Training Data Analysis
 
-# In[1]:
+# In[15]:
 
 
 import os
 import sys
+import glob
 import logging
 import itertools
 import numpy as np
@@ -29,7 +30,7 @@ from common.constants import (
 )
 
 
-# In[2]:
+# In[16]:
 
 
 target_data = "PXD025859"  # PXD035158
@@ -39,7 +40,7 @@ plots_dir = get_or_create_folder(BASE_PLOTS_DIR / artifacts_sub_dir)
 csv_dir = get_or_create_folder(BASE_REPORTS_CSV_DIR / artifacts_sub_dir)
 
 
-# In[3]:
+# In[17]:
 
 
 logger_config = get_logger_config(subdir=artifacts_sub_dir)
@@ -51,7 +52,7 @@ logging.warning(
 plt.rcParams["font.family"] = ["monospace"]
 
 
-# In[4]:
+# In[18]:
 
 
 logger.info(
@@ -61,14 +62,14 @@ logger.info(
 
 #
 
-# In[6]:
+# In[19]:
 
 
 # Grab all ipc files of interest but ATTENTION;
 # loading all many ipc files will increase the computation time
 ipc_files = collect_files(BASE_RAW_DATA_DIR / target_data)
 logger.info(f"Found {len(ipc_files)} IPC files")
-df = load_ipc_files(ipc_files, verbose=True)
+df, _ = load_ipc_files(ipc_files, verbose=False)
 df.head(20)
 
 
@@ -556,24 +557,139 @@ plot_x_y(
 )
 
 
-# ### Do we have entries that come with modified_peptide set to peptide without any actual modifications ?
+# ## Deep Analysis of modifications
 
-# In[5]:
+# ### Do we have entries that come with modified_peptide set to peptide without any actual modifications (Indecent cells)?
+
+# In[23]:
 
 
-fake_modification_df = df[df["peptide"] == df["modified_peptide"]]
+projects_dirs = glob.glob(f"{BASE_RAW_DATA_DIR}/*/")
+assert projects_dirs, projects_dirs
+dirs_to_ignore = ["PXD044641_PXD035158"]
+
+empty_modifications_table = []
+# TODO: To run, fix the for loop
+for project_dir in []:  # projects_dirs:
+    project_name = project_dir.split("/")[-2]
+    if project_name in dirs_to_ignore:
+        logger.info(f"Skipping project {project_name} as part of projects to ignore")
+        continue
+    logger.info(f"Processing project {project_name}")
+    project_file_paths = collect_files(location=project_dir, ext="ipc")
+    df, _ = load_ipc_files(project_file_paths)
+    fake_modification_df = df[df["peptide"] == df["modified_peptide"]]
+    empty_modification_count = df["modified_peptide"].isna().sum()
+    rows_count = len(df)
+
+    empty_modifications_table.append(
+        {
+            "Project ID": project_name,
+            "Rows count": rows_count,
+            "Real modifications count": len(df)
+            - empty_modification_count
+            - len(fake_modification_df),
+            "Empty modifications count": empty_modification_count,
+            "Fake modifications count (peptide = modified_peptide)": len(
+                fake_modification_df
+            ),
+        }
+    )
+
+modification_df = pd.DataFrame(empty_modifications_table)
+
+modification_df.to_csv(
+    BASE_REPORTS_CSV_DIR / "actual_modified_peptide_entries_count_per_project.csv",
+    index=False,
+)
+modification_df.head(8)
+
+
+# ## Deep missing column/values investigation (Independent section/cells)
+
+# In[ ]:
+
+
+projects_dirs = glob.glob(f"{BASE_RAW_DATA_DIR}/*/")
+assert projects_dirs, projects_dirs
+dirs_to_ignore = ["PXD044641_PXD035158"]
+
+project_summary = {}
 
 
 # In[ ]:
 
 
-fake_modification_df.head(6)
+# TODO: To run, fix the for loop
+for project_dir in []:  # projects_dirs:
+    project_name = project_dir.split("/")[-2]
+    if project_name in dirs_to_ignore:
+        logger.info(f"Skipping project {project_name} as part of projects to ignore")
+        continue
+    project_file_paths = collect_files(location=project_dir, ext="ipc")
+    _, summary = load_ipc_files(project_file_paths)
+    project_summary[project_name] = summary
 
 
-# In[ ]:
+# In[9]:
 
 
-fake_modification_df[["peptide", "modified_peptide"]]
+table_rows = []
+
+for project_id, file_info_list in project_summary.items():
+    for file_info in file_info_list:
+        file_path = file_info["file_path"]
+        file_name = file_path.split("/")[-1]  # Extract the file name from the path
+        row_count = file_info["row_count"]
+        column_count = file_info["column_count"]
+        columns = file_info["columns"]
+        # isolation_target and modified_peptide are the fields that used to miss
+        # That knowledge comes from previous investigations.
+        missing_isolation_target = file_info["missing_values"].get(
+            "isolation_target", 0
+        )
+        missing_modified_peptide = file_info["missing_values"].get(
+            "modified_peptide", 0
+        )
+
+        # Calculate percentages
+        percent_missing_isolation_target = (missing_isolation_target / row_count) * 100
+        percent_missing_modified_peptide = (missing_modified_peptide / row_count) * 100
+
+        table_rows.append(
+            {
+                "Project ID": project_id,
+                "File Name": file_name,
+                "Row Count": row_count,
+                "Column Count": column_count,
+                "Columns": columns,
+                "Missing isolation_target": missing_isolation_target,
+                "Missing modified_peptide": missing_modified_peptide,
+                "% Missing isolation_target": round(
+                    percent_missing_isolation_target, 2
+                ),
+                "% Missing modified_peptide": round(
+                    percent_missing_modified_peptide, 2
+                ),
+            }
+        )
+
+
+# In[10]:
+
+
+df_missing_summary = pd.DataFrame(table_rows)
+
+df_missing_summary.to_csv(
+    BASE_REPORTS_CSV_DIR / "deep_missing_values_investigation_summary_report.csv",
+    index=False,
+)
+
+
+# In[11]:
+
+
+df_missing_summary.head(10)
 
 
 # ## PTMs identification
