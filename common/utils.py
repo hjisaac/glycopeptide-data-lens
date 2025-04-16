@@ -60,7 +60,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def load_ipc_files(file_paths, verbose=False) -> tuple[pd.DataFrame, list]:
+def load_ipc_files(file_paths, verbose=False, format="ipc") -> tuple[pd.DataFrame, list]:
     dfs = []
     # List to store per-file information
     file_info_list = []
@@ -70,7 +70,7 @@ def load_ipc_files(file_paths, verbose=False) -> tuple[pd.DataFrame, list]:
         enumerate(file_paths), total=len(file_paths), desc="Processing files"
     ):
         logger.info(f"Processing file {i}: {file}")
-        df = pd.read_feather(file)
+        df = pd.read_feather(file) if format in ("ipc", "feather") else pd.read_csv(file)
 
         # Collect file information
         file_info = {

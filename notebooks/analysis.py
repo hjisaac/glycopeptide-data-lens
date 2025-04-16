@@ -566,13 +566,13 @@ plot_x_y(
 
 projects_dirs = glob.glob(f"{BASE_RAW_DATA_DIR}/*/")
 assert projects_dirs, projects_dirs
-dirs_to_ignore = ["PXD044641_PXD035158"]
+project_dirs_to_ignore = ["PXD044641_PXD035158"]
 
 empty_modifications_table = []
 # TODO: To run, fix the for loop
 for project_dir in []:  # projects_dirs:
     project_name = project_dir.split("/")[-2]
-    if project_name in dirs_to_ignore:
+    if project_name in project_dirs_to_ignore:
         logger.info(f"Skipping project {project_name} as part of projects to ignore")
         continue
     logger.info(f"Processing project {project_name}")
@@ -612,7 +612,7 @@ modification_df.head(8)
 
 projects_dirs = glob.glob(f"{BASE_RAW_DATA_DIR}/*/")
 assert projects_dirs, projects_dirs
-dirs_to_ignore = ["PXD044641_PXD035158"]
+project_dirs_to_ignore = ["PXD044641_PXD035158"]
 
 project_summary = {}
 
@@ -623,7 +623,7 @@ project_summary = {}
 # TODO: To run, fix the for loop
 for project_dir in []:  # projects_dirs:
     project_name = project_dir.split("/")[-2]
-    if project_name in dirs_to_ignore:
+    if project_name in project_dirs_to_ignore:
         logger.info(f"Skipping project {project_name} as part of projects to ignore")
         continue
     project_file_paths = collect_files(location=project_dir, ext="ipc")

@@ -174,7 +174,7 @@ def write_split(
 
 
 projects_dirs = glob.glob(f"{BASE_RAW_DATA_DIR}/*/")
-dirs_to_ignore = ["PXD044641_PXD035158"]  #
+project_dirs_to_ignore = ["PXD044641_PXD035158"]  #
 
 assert projects_dirs, projects_dirs
 
@@ -187,11 +187,11 @@ logger.info("Starting to split the dataset but using random split")
 # Version 0 for train/test split: Constraint free split
 # NOTE: This code is broken because of the param drop_unmodified
 algorithm_version = "v0"
-dirs_to_ignore = ["PXD044641_PXD035158"]  #
+project_dirs_to_ignore = ["PXD044641_PXD035158"]  #
 # DOCME: Replace the [] by projects_dirs to make the to script run
 for project_dir in []:  # projects_dirs:
     project_name = project_dir.split("/")[-2]
-    if project_name in dirs_to_ignore:
+    if project_name in project_dirs_to_ignore:
         logger.info(f"Skipping project {project_name} as part of projects to ignore")
         continue
     project_file_paths = collect_files(location=project_dir, ext="ipc")
@@ -235,7 +235,7 @@ kevin_val_peptides_array = pd.read_csv(
 
 # Version 1 for train/test/valid split => peptide is used as fallback for modified_peptide
 logger.info("Starting to split the dataset but taking into account kevin's suggestion")
-dirs_to_ignore = ["PXD044641_PXD035158"]  #
+project_dirs_to_ignore = ["PXD044641_PXD035158"]  #
 # Focus on massivekb
 
 algorithm_version = "v1"
@@ -243,7 +243,7 @@ algorithm_version = "v1"
 for project_dir in []:  # projects_dirs:
     project_name = project_dir.split("/")[-2]
 
-    if project_name in dirs_to_ignore:
+    if project_name in project_dirs_to_ignore:
         logger.info(f"Skipping project {project_name} as part of projects to ignore")
         continue
     project_file_paths = collect_files(location=project_dir, ext="ipc")
@@ -272,14 +272,14 @@ for project_dir in []:  # projects_dirs:
 
 # Version 2 or Version 2.1 for train/test/valid split => All rows with missing modified_peptides are filtered out. But is version 2.1 we also filter out fake modifications defined as modifications for which modified_peptide is equal to peptide.
 logger.info("Starting to split the dataset but taking into account kevin's suggestion")
-dirs_to_ignore = ["PXD044641_PXD035158"]  #
+project_dirs_to_ignore = ["PXD044641_PXD035158"]  #
 
 # Focus on massivekb
 algorithm_version = "v2.1"  # Version 2.1
 for project_dir in projects_dirs:  # projects_dirs:
     project_name = project_dir.split("/")[-2]
 
-    if project_name in dirs_to_ignore:
+    if project_name in project_dirs_to_ignore:
         logger.info(f"Skipping project {project_name} as part of projects to ignore")
         continue
     project_file_paths = collect_files(location=project_dir, ext="ipc")
@@ -325,7 +325,7 @@ for split in ("train", "valid", "test"):
     for project_dir in projects_dirs:  # projects_dirs:
         project_name = project_dir.split("/")[-2]
 
-        if project_name in dirs_to_ignore:
+        if project_name in project_dirs_to_ignore:
             logger.info(
                 f"Skipping project {project_name} as part of projects to ignore"
             )
@@ -390,7 +390,7 @@ for split in ("train", "valid", "test"):
     for project_dir in projects_dirs:  # projects_dirs:
         project_name = project_dir.split("/")[-2]
 
-        if project_name in dirs_to_ignore:
+        if project_name in project_dirs_to_ignore:
             logger.info(
                 f"Skipping project {project_name} as part of projects to ignore"
             )
