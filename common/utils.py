@@ -46,19 +46,6 @@ def get_or_create_folder(path: str | Path) -> str:
     Path(path).mkdir(parents=True, exist_ok=True)
     return path
 
-# Why do I have this here ?
-import pandas as pd
-from tqdm import tqdm
-import logging
-
-# Configure the logger
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-)
-logger = logging.getLogger(__name__)
-
 
 def load_ipc_files(file_paths, verbose=False, format="ipc") -> tuple[pd.DataFrame, list]:
     dfs = []
