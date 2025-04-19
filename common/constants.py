@@ -13,6 +13,7 @@ IDENTITY_FILE_PATHS = [
     BASE_REPORTS_CSV_DIR / "identity_splits_proteome_tools_from_kevin.csv",
     BASE_REPORTS_CSV_DIR / "identity_splits_massivekb_from_kevin.csv",
     BASE_REPORTS_CSV_DIR / "identity_splits_phospho_from_kevin.csv",
+    BASE_REPORTS_CSV_DIR / "identity_splits_pride.csv",
 ]
 BLACKLIST_FILE_PATHS = [
     BASE_REPORTS_CSV_DIR / "identity_splits_blacklist_from_kevin.csv",

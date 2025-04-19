@@ -46,7 +46,7 @@ def get_or_create_folder(path: str | Path) -> str:
     Path(path).mkdir(parents=True, exist_ok=True)
     return path
 
-
+# Why do I have this here ?
 import pandas as pd
 from tqdm import tqdm
 import logging
