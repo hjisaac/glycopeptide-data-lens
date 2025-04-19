@@ -7,6 +7,8 @@
 import os
 import sys
 import glob
+import csv
+import random
 import logging
 import numpy as np
 import pandas as pd
@@ -14,8 +16,10 @@ import polars as pl
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-from typing import Literal
+from typing import Literal, Union
 from pathlib import Path
+from functools import partial
+from collections import Counter
 from instanovo.utils.data_handler import SpectrumDataFrame
 
 from instanovo.transformer.dataset import remove_modifications as clean_peptide
@@ -36,6 +40,8 @@ from common.constants import (
     BASE_PLOTS_DIR,
     ROOT_DIR,
     BASE_REPORTS_CSV_DIR,
+    IDENTITY_FILE_PATHS,
+    BLACKLIST_FILE_PATHS,
 )
 
 
@@ -56,18 +62,22 @@ peptides_file_paths = [
     for path in collect_files(BASE_REPORTS_CSV_DIR, ext="csv")
     if "unique_peptides" in path
 ]
+projects_dirs = glob.glob(f"{BASE_RAW_DATA_DIR}/*/")
+projects_names = [project_dir.split("/")[-2] for project_dir in projects_dirs]
+project_dirs_to_ignore = ["PXD044641_PXD035158"]  #
 
+assert projects_dirs, projects_dirs
 assert peptides_file_paths, peptides_file_paths
 
 
-# In[14]:
+# In[5]:
 
 
 df = pd.concat([pd.read_csv(file) for file in peptides_file_paths], ignore_index=True)
 df.head(20)
 
 
-# In[15]:
+# In[6]:
 
 
 df["Unique Peptides"].describe()
@@ -75,7 +85,7 @@ df["Unique Peptides"].describe()
 
 # ## Split without Kevin constraint
 
-# In[16]:
+# In[17]:
 
 
 unique_peptides_df = df["Unique Peptides"].drop_duplicates()
@@ -170,16 +180,7 @@ def write_split(
     )
 
 
-# In[4]:
-
-
-projects_dirs = glob.glob(f"{BASE_RAW_DATA_DIR}/*/")
-project_dirs_to_ignore = ["PXD044641_PXD035158"]  #
-
-assert projects_dirs, projects_dirs
-
-
-# In[16]:
+# In[21]:
 
 
 logger.info("Starting to split the dataset but using random split")
@@ -213,7 +214,7 @@ for project_dir in []:  # projects_dirs:
         )
 
 
-# In[23]:
+# In[22]:
 
 
 kevin_train_peptides_array = pd.read_csv(
@@ -230,7 +231,7 @@ kevin_val_peptides_array = pd.read_csv(
 )["Overlapped valid peptides"].unique()
 
 
-# In[ ]:
+# In[23]:
 
 
 # Version 1 for train/test/valid split => peptide is used as fallback for modified_peptide
@@ -267,7 +268,9 @@ for project_dir in []:  # projects_dirs:
         )
 
 
-# In[5]:
+# ### Dataset Split Algo Version 2/2.1
+
+# In[ ]:
 
 
 # Version 2 or Version 2.1 for train/test/valid split => All rows with missing modified_peptides are filtered out. But is version 2.1 we also filter out fake modifications defined as modifications for which modified_peptide is equal to peptide.
@@ -304,17 +307,175 @@ for project_dir in projects_dirs:  # projects_dirs:
         )
 
 
-# In[9]:
+# ### Dataset Split Algo Version 3
+
+# 1. Find a list of all unique unmodified peptides in all the glyco data — Let's call it set **G**
+# 2. Let my data splits be **E**, basically the train/valid/test splits I provided for all the datasets
+# 3. Find the intersection **G ∩ E**, use the existing labels for those
+# 4. Find the unlabeled set **G - E**, and manually label these
+#     a. Use the intersection **G ∩ E** to find the number of peptides per data split already labelled
+#     b. Randomly distribute **G - E** such that you get roughly an 80:10:10 split for train:valid:test once you combine all your data splits
+#     c. The combination of **G ∪ E** and **G - E** should give you your final data splits for all data
+
+# In[7]:
 
 
-# rr["modified_peptide"].head(100)
+# All the peptides in the glyco dataset
+glyco_peptides_df, _ = load_ipc_files(
+    [
+        BASE_REPORTS_CSV_DIR / project_name / "unique_peptides.csv"
+        for project_name in projects_names
+        if project_name not in project_dirs_to_ignore
+    ],
+    format="csv",
+)
+glyco_peptides_set = set(glyco_peptides_df)
+
+
+# In[77]:
+
+
+# Without massivekb
+IDENTITY_FILE_PATHS = [
+    path
+    for path in IDENTITY_FILE_PATHS
+    if path.stem not in "identity_splits_massivekb_from_kevin.csv"
+]
+assert len(IDENTITY_FILE_PATHS) == 3, IDENTITY_FILE_PATHS
+
+print(IDENTITY_FILE_PATHS)
+
+
+# In[100]:
+
+
+for file_ in IDENTITY_FILE_PATHS:
+    df = pd.read_csv(file_)
+    print(f"\nFile: {file_}")
+    print(df["split"].value_counts())
+
+
+# In[78]:
+
+
+# Here, we want to merge all the identity files and use them to do the first splits
+kevin_merged_splits_df, kevin_merged_splits_summary = load_ipc_files(
+    IDENTITY_FILE_PATHS, format="csv"
+)
+
+
+# In[75]:
+
+
+len(kevin_merged_splits_df)
+
+
+# In[79]:
+
+
+kevin_merged_splits_df.head(20)
+
+
+# In[80]:
+
+
+kevin_merged_splits_df.duplicated().sum()
+
+
+# In[81]:
+
+
+print(
+    "The number of duplicated rows:",
+    len(kevin_merged_splits_df) - len(kevin_merged_splits_df.drop_duplicates()),
+)
+
+
+# In[87]:
+
+
+duplicates_tuples_output_file = (
+    ROOT_DIR / ".trash_local/duplicated_acpt_phospho_pride_identity_files_tuples.csv"
+)
+kevin_merged_splits_df[kevin_merged_splits_df.duplicated(keep=False)].to_csv(
+    duplicates_tuples_output_file, index=False
+)
+
+print(f"Duplicated rows have been saved to {duplicates_tuples_output_file}")
+
+
+# In[90]:
+
+
+# Drop duplicates
+unique_kevin_merged_splits_df = kevin_merged_splits_df.drop_duplicates()
+print("The number of unique rows:", len(unique_kevin_merged_splits_df))
+
+
+# In[94]:
+
+
+# Now let's understand if there is any sequence with mutiple split values
+split_counts = unique_kevin_merged_splits_df.groupby("sequence")["split"].nunique()
+
+
+# In[95]:
+
+
+split_counts.to_csv(
+    BASE_REPORTS_CSV_DIR
+    / "merged_acpt_phospho_pride_identity_splits_files_peptides_with_many_split_values.csv",
+    index=False,
+)
+
+
+# In[96]:
+
+
+multi_split_sequences = split_counts[split_counts > 1]
+print(f"Sequences with multiple splits: {len(multi_split_sequences)}")
+print(multi_split_sequences.head())
+
+
+# In[97]:
+
+
+# Keep only the first occurrence of each sequence
+unique_kevin_merged_splits_df = unique_kevin_merged_splits_df.drop_duplicates(
+    subset="sequence", keep="first"
+)
+print(
+    "After dropping duplicates, the number of rows is: ",
+    len(unique_kevin_merged_splits_df),
+)
+# Recalculate multi_split_sequences to confirm it's empty
+split_counts = unique_kevin_merged_splits_df.groupby("sequence")["split"].nunique()
+multi_split_sequences = split_counts[split_counts > 1]
+
+print(f"Sequences with multiple splits after processing: {len(multi_split_sequences)}")
+
+
+# In[98]:
+
+
+unique_kevin_merged_splits_df.to_csv(
+    BASE_REPORTS_CSV_DIR
+    / "merged_acpt_phospho_pride_identity_splits_files_peptides_with_unique_split_value.csv",
+    index=False,
+)
+
+
+# In[101]:
+
+
+print(unique_kevin_merged_splits_df["split"].value_counts())
 
 
 # ## Attempt to analyze the content of the split files
 
-# ### Split Version 2.1
+# ### Split Version 2.1 - Content analysis
 
-# In[29]:
+# In[ ]:
 
 
 split_version = 2.1
@@ -348,7 +509,7 @@ for split in ("train", "valid", "test"):
     )
 
 
-# In[30]:
+# In[ ]:
 
 
 train_peptide_and_modified_df = pd.read_csv(
@@ -359,7 +520,7 @@ train_peptide_and_modified_df = pd.read_csv(
 train_peptide_and_modified_df.describe()
 
 
-# In[31]:
+# In[ ]:
 
 
 valid_peptide_and_modified_df = pd.read_csv(
@@ -369,7 +530,7 @@ valid_peptide_and_modified_df = pd.read_csv(
 valid_peptide_and_modified_df.describe()
 
 
-# In[32]:
+# In[ ]:
 
 
 test_peptide_and_modified_df = pd.read_csv(
@@ -379,7 +540,10 @@ test_peptide_and_modified_df = pd.read_csv(
 test_peptide_and_modified_df.describe()
 
 
-# In[33]:
+# ### Split Version 1 - Content analysis
+#
+
+# In[ ]:
 
 
 split_version = 1
@@ -411,7 +575,7 @@ for split in ("train", "valid", "test"):
     )
 
 
-# In[34]:
+# In[ ]:
 
 
 train_peptide_and_modified_df = pd.read_csv(
@@ -422,7 +586,7 @@ train_peptide_and_modified_df = pd.read_csv(
 train_peptide_and_modified_df.describe()
 
 
-# In[35]:
+# In[ ]:
 
 
 valid_peptide_and_modified_df = pd.read_csv(
@@ -432,7 +596,7 @@ valid_peptide_and_modified_df = pd.read_csv(
 valid_peptide_and_modified_df.describe()
 
 
-# In[36]:
+# In[ ]:
 
 
 test_peptide_and_modified_df = pd.read_csv(
@@ -440,50 +604,6 @@ test_peptide_and_modified_df = pd.read_csv(
     / f"version{split_version}_test_split_peptide_and_modified_peptides.csv",
 )
 test_peptide_and_modified_df.describe()
-
-
-# ## Investigation for Kostas
-
-# In[2]:
-
-
-train1 = pd.read_csv(
-    "/home/hjisaac/AI4Science/instanovo_instadeep/InstanovoGlyco/.trash_local/version1_train_split_peptide_and_modified_peptides.csv"
-)
-
-
-# In[4]:
-
-
-len(train1["modified_peptide"].unique())
-
-
-# In[7]:
-
-
-len(train1)
-
-
-# In[3]:
-
-
-train2 = pd.read_csv(
-    "/home/hjisaac/AI4Science/instanovo_instadeep/InstanovoGlyco/.trash_local/version2.1_train_split_peptide_and_modified_peptides.csv"
-)
-
-
-#
-
-# In[6]:
-
-
-len(train2)
-
-
-# In[5]:
-
-
-len(train2["modified_peptide"].unique())
 
 
 #

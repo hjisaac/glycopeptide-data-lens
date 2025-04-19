@@ -3,7 +3,7 @@
 
 # # Instanovo-Glyco Training Data Analysis
 
-# In[15]:
+# In[1]:
 
 
 import os
@@ -30,17 +30,17 @@ from common.constants import (
 )
 
 
-# In[16]:
+# In[2]:
 
 
-target_data = "PXD025859"  # PXD035158
+target_data = "PXD035158"  # "PXD025859"
 artifacts_sub_dir = (BASE_RAW_DATA_DIR / target_data).as_posix().split("/")[-1]
 logs_dir = get_or_create_folder(BASE_LOGS_DIR / artifacts_sub_dir)
 plots_dir = get_or_create_folder(BASE_PLOTS_DIR / artifacts_sub_dir)
 csv_dir = get_or_create_folder(BASE_REPORTS_CSV_DIR / artifacts_sub_dir)
 
 
-# In[17]:
+# In[3]:
 
 
 logger_config = get_logger_config(subdir=artifacts_sub_dir)
@@ -52,7 +52,7 @@ logging.warning(
 plt.rcParams["font.family"] = ["monospace"]
 
 
-# In[18]:
+# In[4]:
 
 
 logger.info(
@@ -62,7 +62,7 @@ logger.info(
 
 #
 
-# In[19]:
+# In[5]:
 
 
 # Grab all ipc files of interest but ATTENTION;
@@ -79,7 +79,7 @@ df.head(20)
 assert False, "Raised intentionally"
 
 
-# In[4]:
+# In[6]:
 
 
 # Graphing functions go here
@@ -297,13 +297,13 @@ def plot_x_y_bar(
 df.info()
 
 
-# In[ ]:
+# In[7]:
 
 
 df[["mz"]].iloc[0].mz
 
 
-# In[11]:
+# In[8]:
 
 
 highly_relevant_columns = [
@@ -343,7 +343,7 @@ less_relevant_columns = [
 
 # ### Recap statistics for relevant and less relevant columns
 
-# In[6]:
+# In[9]:
 
 
 df_described = df[highly_relevant_columns].describe()
@@ -351,7 +351,7 @@ df_described.to_csv(csv_dir / "highly_relevant_columns_described_df.csv", index=
 df_described
 
 
-# In[ ]:
+# In[10]:
 
 
 df_described = df[moderatly_relevant_columns].describe()
@@ -361,12 +361,40 @@ df_described.to_csv(
 df_described
 
 
-# In[ ]:
+# In[11]:
 
 
 df_described = df[less_relevant_columns].describe()
 df_described.to_csv(csv_dir / "less_relevant_columns_described_df.csv", index=False)
 df_described
+
+
+# In[29]:
+
+
+value_counts = df[["peptide", "modified_peptide"]].value_counts()
+value_counts
+
+
+# In[34]:
+
+
+value_counts_df = value_counts.reset_index(name="count")
+
+
+# In[36]:
+
+
+# Compute basic statistics for the counts
+stats = {
+    "mean": value_counts_df["count"].mean(),
+    "median": value_counts_df["count"].median(),
+    "std_dev": value_counts_df["count"].std(),
+    "min": value_counts_df["count"].min(),
+    "max": value_counts_df["count"].max(),
+    "total": value_counts_df["count"].sum(),
+}
+stats
 
 
 # ### Duplicate investigation
