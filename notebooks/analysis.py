@@ -261,35 +261,35 @@ def plot_x_y_bar(
 
 # ## Columns description
 #
-# | **Field**               | **Description**                                                                                   |
-# |--------------------------|---------------------------------------------------------------------------------------------------|
-# | `index`                 | A unique identifier for each entry in the dataset.                                                |
-# | `scan`                  | The scan number corresponding to the acquisition of the mass spectrum.                            |
-# | `header`                | Additional metadata about the scan, such as file source or retention time.                        |
-# | `rt` (Retention Time)   | The time it takes for the peptide to travel through the chromatographic column.                   |
-# | `frag_type`             | The type of fragmentation used (e.g., CID, HCD, ETD).                                             |
-# | `collision_energy`      | The energy applied to fragment precursor ions.                                                    |
-# | `precursor_mz`          | The mass-to-charge ratio (\(m/z\)) of the precursor ion before fragmentation.                     |
-# | `precursor_charge`      | The charge state of the precursor ion (e.g., +2, +3).                                             |
-# | `precursor_intensity`   | The intensity of the precursor ion signal, reflecting its abundance.                              |
-# | `lower_offset`          | The lower bound of the \(m/z\) window for isolating the precursor ion.                            |
-# | `upper_offset`          | The upper bound of the \(m/z\) window for isolating the precursor ion.                            |
-# | `isolation_target`      | The target \(m/z\) value for isolating the precursor ion.                                         |
+# | **Field**              | **Description**                                                                                   |
+# |------------------------|---------------------------------------------------------------------------------------------------|
+# | `index`                | A unique identifier for each entry in the dataset.                                                |
+# | `scan`                 | The scan number corresponding to the acquisition of the mass spectrum.                            |
+# | `header`               | Additional metadata about the scan, such as file source or retention time.                        |
+# | `rt` (Retention Time)  | The time it takes for the peptide to travel through the chromatographic column.                   |
+# | `frag_type`            | The type of fragmentation used (e.g., CID, HCD, ETD).                                             |
+# | `collision_energy`     | The energy applied to fragment precursor ions.                                                    |
+# | `precursor_mz`         | The mass-to-charge ratio (\(m/z\)) of the precursor ion before fragmentation.                     |
+# | `precursor_charge`     | The charge state of the precursor ion (e.g., +2, +3).                                             |
+# | `precursor_intensity`  | The intensity of the precursor ion signal, reflecting its abundance.                              |
+# | `lower_offset`         | The lower bound of the \(m/z\) window for isolating the precursor ion.                            |
+# | `upper_offset`         | The upper bound of the \(m/z\) window for isolating the precursor ion.                            |
+# | `isolation_target`     | The target \(m/z\) value for isolating the precursor ion.                                         |
 # | `mz`                   | The mass-to-charge ratio (\(m/z\)) of ions detected in the spectrum.                              |
-# | `intensity`             | The intensity of ions detected in the spectrum, reflecting their abundance.                       |
-# | `scale_factor`          | A scaling factor applied to intensities for normalization.                                        |
-# | `peptide`               | The sequence of the identified peptide, without modifications.                                    |
-# | `modified_peptide`      | The sequence of the peptide with post-translational modifications (e.g., glycosylation).          |
-# | `peptide_observed_mz`   | The observed \(m/z\) of the peptide in the spectrum.                                              |
-# | `peptide_calc_mz`       | The theoretical \(m/z\) of the peptide based on its sequence and modifications.                   |
-# | `delta_mass`            | The difference between observed and calculated mass, indicating potential modifications or errors. |
-# | `retention`             | The retention time of the peptide, used for identification confirmation.                          |
-# | `expectation`           | A statistical value (e.g., E-value) indicating the reliability of peptide identification.          |
-# | `hyperscore`            | A confidence score for peptide identification (e.g., from Mascot or Sequest).                     |
-# | `nextscore`             | An additional confidence score for peptide identification.                                        |
-# | `probability`           | The probability that the peptide identification is correct.                                       |
-# | `auc_intensity`         | The area under the curve (AUC) of the signal intensity, used for quantification.                  |
-# | `protein`               | The protein to which the peptide belongs, identified from a database.                             |
+# | `intensity`            | The intensity of ions detected in the spectrum, reflecting their abundance.                       |
+# | `scale_factor`         | A scaling factor applied to intensities for normalization.                                        |
+# | `peptide`              | The sequence of the identified peptide, without modifications.                                    |
+# | `modified_peptide`     | The sequence of the peptide with post-translational modifications (e.g., glycosylation).          |
+# | `peptide_observed_mz`  | The observed \(m/z\) of the peptide in the spectrum.                                              |
+# | `peptide_calc_mz`      | The theoretical \(m/z\) of the peptide based on its sequence and modifications.                   |
+# | `delta_mass`           | The difference between observed and calculated mass, indicating potential modifications or errors. |
+# | `retention`            | The retention time of the peptide, used for identification confirmation.                          |
+# | `expectation`          | A statistical value (e.g., E-value) indicating the reliability of peptide identification.          |
+# | `hyperscore`           | A confidence score for peptide identification (e.g., from Mascot or Sequest).                     |
+# | `nextscore`            | An additional confidence score for peptide identification.                                        |
+# | `probability`          | The probability that the peptide identification is correct.                                       |
+# | `auc_intensity`        | The area under the curve (AUC) of the signal intensity, used for quantification.                  |
+# | `protein`              | The protein to which the peptide belongs, identified from a database.                             |
 
 # In[6]:
 

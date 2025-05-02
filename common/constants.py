@@ -18,3 +18,5 @@ IDENTITY_FILE_PATHS = [
 BLACKLIST_FILE_PATHS = [
     BASE_REPORTS_CSV_DIR / "identity_splits_blacklist_from_kevin.csv",
 ]
+
+PLUS_INFINITY = float("inf")
