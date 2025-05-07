@@ -26,7 +26,7 @@ from ordered_set import OrderedSet
 # Temporary fix for imports, investigate later
 sys.path.append(os.path.abspath(os.path.join(os.getcwd(), os.pardir)))
 from common.utils import collect_files, get_timestamp
-from common.constants import BASE_RAW_DATA_DIR, BASE_PTMS_DIR
+from common.constants import BASE_RAW_DATA_DIR, BASE_PTMS_DIR, PLUS_INFINITY
 from common.logger import get_logger_config
 
 
@@ -56,7 +56,7 @@ GLYCOSYLATION_REGEX_TEMPLATE = r"(?P<aa>[{sites}])\[(?P<glycan_mass>\d+)\]"
 N_GLYCOSYLATION_REGEX = GLYCOSYLATION_REGEX_TEMPLATE.format(
     sites=PTMSitesEnum.N_GLYCOSYLATION
 )
-# Regex to capture any ptm of the nature ABC..[n]...
+# Regex to capture any ptm of the nature ABC..[{number}]...
 ANY_PTM_REGEX = GLYCOSYLATION_REGEX_TEMPLATE.format(sites=PTMSitesEnum.ANY)
 
 ipc_files = collect_files(BASE_RAW_DATA_DIR)
@@ -65,15 +65,17 @@ logger.info(f"Found {len(ipc_files)} IPC files in {BASE_RAW_DATA_DIR}: {ipc_file
 
 
 def identify_ptms(
-    ipc_files: list, ptm_examples_limit: int = 5, return_df=True  # noqa
+    ipc_files: list,
+    ptm_examples_limit: int = 5,
+    keep_duplicated_examples: bool = False,
+    return_df=True,  # noqa
 ) -> dict[str : OrderedSet[tuple]] | pd.DataFrame:
     """
     Identify post-translational modifications (PTMs) from a list of IPC files.
 
     This function processes a list of IPC files containing peptide sequences
     and extracts PTMs. If a PTM is found, its occurrence is tracked efficiently
-    using an OrderedSet just to keep the insertion the processing order. The function
-    limits the number of stored examples per PTM to avoid excessive memory consumption.
+    using an OrderedSet just to keep the insertion order.
 
     Note: After analyzing the data, we can see that the number of ptm is not huge.
     So if the number of examples is not huge, this algo will be efficient in
@@ -87,9 +89,11 @@ def identify_ptms(
             Default to 5.
 
     Returns:
-        dict: A dictionary where keys are glycan mass values and values are OrderedSets
+        dict: A dictionary where keys are tuples of glycan mass and site and values are OrderedSets
         containing tuples of (glycan_mass, project_name, file_name, spectrum_id, ipc_index).
     """
+
+    logger.info(f"Starting process with parameters {locals()}")
 
     # Seen ptms
     seen_ptms = {}
@@ -153,15 +157,17 @@ def identify_ptms(
                     sequence_object.modified_peptide,
                 )
 
-                if ptm_example[-1] in {example[-1] for example in ptm_examples}:
+                if (not keep_duplicated_examples) and (
+                    ptm_example[-1] in {example[-1] for example in ptm_examples}
+                ):
                     # This is a known/seen example, so continue
                     logger.debug(f"Skipping already seen ptm example {ptm_example}")
                     continue
 
                 elif len(ptm_examples) == 0:
-                    # This is a first-seen ptm
+                    # This is a first-seen example of the ptm
                     seen_ptms[ptm] = OrderedSet([ptm_example])
-                    logger.debug(f"Adding first seen ptm's example {ptm_example}")
+                    logger.debug(f"Adding first seen example of the ptm {ptm_example}")
 
                 else:
                     seen_ptms[ptm].add(ptm_example)
@@ -172,11 +178,14 @@ def identify_ptms(
         global_added_examples_count += added_examples_count
 
         logger.info(
-            f"Successfully parsed {project_name}/{file_name} ipc file and added {added_examples_count} new example from it."
+            f"Successfully parsed {project_name}/{file_name} ipc file and added "
+            f"{added_examples_count} new example from it."
         )
 
     logger.info(
-        f"Process finish with {unmodified_peptides_count} unmodified peptides found, {modified_peptides_count} modified peptides found, {len(seen_ptms)} ptms added, and {global_added_examples_count} examples added globally."
+        f"Process finish with {unmodified_peptides_count} unmodified peptides found, "
+        f"{modified_peptides_count} modified peptides found, {len(seen_ptms)} ptms added, "
+        f"and {global_added_examples_count} examples added globally."
     )
 
     return (
@@ -201,7 +210,9 @@ def identify_ptms(
 
 
 if __name__ == "__main__":
-    csv_name = f"{BASE_PTMS_DIR}/identified_n_glycosylation_ptms_with_5_examples{get_timestamp()}.csv"
-    ptms_df = identify_ptms(ipc_files)
+    csv_name = f"{BASE_PTMS_DIR}/identified_n_glycosylation_ptms_with_all_examples_occurrences{get_timestamp()}.csv"
+    ptms_df = identify_ptms(
+        ipc_files, ptm_examples_limit=PLUS_INFINITY, keep_duplicated_examples=True
+    )
     ptms_df.to_csv(csv_name, index=False)
     logger.info(f"Saved {len(ptms_df)} found ptm examples into {csv_name} successfully")

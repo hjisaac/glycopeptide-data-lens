@@ -424,7 +424,7 @@ split_counts = unique_kevin_merged_splits_df.groupby("sequence")["split"].nuniqu
 
 split_counts.to_csv(
     BASE_REPORTS_CSV_DIR
-    / "merged_acpt_phospho_pride_identity_splits_files_peptides_with_many_split_values.csv",
+    / "merged_acpt_phospho_pride_identity_splits_files_peptides_with_related_split_values_count.csv",
     index=False,
 )
 
